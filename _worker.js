@@ -25,32 +25,34 @@ export default {
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Redirecting to Telegram...</title>
+    <title>Đang mở Telegram…</title>
     <script>
-      // Attempt to open the Telegram app
       const tgUrl = "${tgProtocolUrl}";
       const webUrl = "${webUrl}";
-      function redirect() {
-        const iframe = document.createElement("iframe");
-        iframe.style.display = "none";
-        iframe.src = tgUrl;
-        document.body.appendChild(iframe);
+      let redirected = false;
 
-        // Fallback to web version after 1s
-        setTimeout(() => {
-          window.location.href = webUrl;
-        }, 1000);
-      }
-      window.onload = redirect;
+      // Bắt đầu chuyển hướng
+      window.onload = function() {
+        // Thử mở ứng dụng Telegram
+        window.location.href = tgUrl;
+
+        // Sau 1.2 giây, nếu vẫn ở trên trang, chuyển sang bản web
+        setTimeout(function() {
+          if (!redirected) {
+            redirected = true;
+            window.location.href = webUrl;
+          }
+        }, 1200);
+      };
     </script>
   </head>
   <body>
-    <p>Đang chuyển hướng đến Telegram… Nếu không tự động mở ứng dụng, bạn sẽ được chuyển sang bản web.</p>
+    <p>Nếu bạn không được chuyển hướng tự động, <a href="${webUrl}">nhấn vào đây để mở Telegram Web</a>.</p>
   </body>
 </html>`;
 
     return new Response(html, {
-      headers: { "content-type": "text/html;charset=UTF-8" },
+      headers: { "content-type": "text/html; charset=utf-8" },
     });
   }
 };
