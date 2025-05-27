@@ -1,1 +1,1 @@
-# telegram-proxy
+# telegram-link-redirector
