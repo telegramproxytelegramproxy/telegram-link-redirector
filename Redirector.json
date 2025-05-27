@@ -1,0 +1,23 @@
+{
+    "createdBy": "Redirector v3.5.3",
+    "createdAt": "2025-05-27T19:36:08.391Z",
+    "redirects": [
+        {
+            "description": "Telegram",
+            "exampleUrl": "https://t.me/bibica_net",
+            "exampleResult": "https://t.bibica.net/bibica_net",
+            "error": null,
+            "includePattern": "^https?://t\\.me/(.*)$",
+            "excludePattern": "",
+            "patternDesc": "",
+            "redirectUrl": "https://t.bibica.net/$1",
+            "patternType": "R",
+            "processMatches": "noProcessing",
+            "disabled": false,
+            "grouped": false,
+            "appliesTo": [
+                "main_frame"
+            ]
+        }
+    ]
+}
