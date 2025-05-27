@@ -1,7 +1,7 @@
 export default {
   async fetch(request) {
     const url = new URL(request.url);
-    const path = url.pathname.slice(1); // Bỏ dấu '/'
+    const path = url.pathname.slice(1);
 
     if (!path) {
       return Response.redirect(
@@ -10,7 +10,7 @@ export default {
       );
     }
 
-    const cleaned = path.replace(/^@/, ''); // bỏ dấu @ nếu có
+    const cleaned = path.replace(/^@/, '');
 
     const tgUrl = cleaned.startsWith('+')
       ? `tg://join?invite=${cleaned.slice(1)}`
