@@ -246,21 +246,21 @@
         <div id="urlInfo" class="url-info" style="display: none;"></div>
         
         <div id="countdown" class="countdown" style="display: none;">
-            Tự động mở Telegram sau <span id="timer">5</span> giây
+            Tự động mở Telegram sau <span id="timer">3</span> giây
         </div>
         
         <div id="actions" class="actions" style="display: none;">
             <a id="openTelegram" href="#" class="btn">
                 ✈ Mở Telegram
             </a>
-            <a id="openWeb" href="#" class="btn secondary" target="_blank">
+            <a id="openWeb" href="#" class="btn secondary" style="display: none;">
                 🌐 Mở trên Web
             </a>
         </div>
         
         <div class="footer">
-            <p><strong>t.bibica.net</strong> - Proxy thay thế cho t.me</p>
-            <p>Hỗ trợ: Channels, Groups, Bots, Stickers, Proxy Settings</p>
+            <p><strong>t.bibica.net</strong> - Proxy thay thế cho t.me bị chặn</p>
+            <p>✅ Chỉ mở app Telegram - Không dùng web t.me</p>
         </div>
     </div>
 
@@ -405,13 +405,13 @@
 
                 urlInfoEl.innerHTML = `
                     <strong>🔗 URL gốc:</strong> ${this.escapeHtml(urlData.original)}<br><br>
-                    <strong>📱 Deep link:</strong> ${this.escapeHtml(urlData.telegram)}<br><br>
-                    <strong>🌐 Web fallback:</strong> ${this.escapeHtml(urlData.web)}
+                    <strong>📱 Deep link:</strong> ${this.escapeHtml(urlData.telegram)}
                 `;
                 urlInfoEl.style.display = 'block';
 
                 document.getElementById('openTelegram').href = urlData.telegram;
-                document.getElementById('openWeb').href = urlData.web;
+                // Ẩn nút web vì t.me bị chặn
+                document.getElementById('openWeb').style.display = 'none';
                 
                 actionsEl.style.display = 'flex';
                 
@@ -438,7 +438,7 @@
                 
                 countdownEl.style.display = 'block';
                 
-                let seconds = 5;
+                let seconds = 3; // Giảm từ 5 xuống 3 giây
                 const interval = setInterval(() => {
                     seconds--;
                     timerEl.textContent = seconds;
@@ -452,19 +452,55 @@
 
             redirectToTelegram(urlData) {
                 try {
-                    // Thử mở app Telegram
-                    window.location.href = urlData.telegram;
-                    
-                    // Fallback cho desktop browsers
-                    setTimeout(() => {
-                        if (!this.isMobile() && !document.hidden) {
-                            window.open(urlData.web, '_blank');
-                        }
-                    }, 1500);
+                    if (this.isMobile()) {
+                        // Mobile: redirect trực tiếp mà không mở tab mới
+                        window.location.replace(urlData.telegram);
+                    } else {
+                        // Desktop: cố gắng mở app mà không chuyển trang
+                        this.openTelegramDesktop(urlData.telegram);
+                    }
                 } catch (error) {
                     console.error('Redirect error:', error);
-                    window.open(urlData.web, '_blank');
+                    this.showError('Không thể mở Telegram');
                 }
+            }
+
+            openTelegramDesktop(telegramUrl) {
+                // Sử dụng trick để mở app mà không chuyển trang
+                const link = document.createElement('a');
+                link.href = telegramUrl;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                
+                // Simulate click
+                link.click();
+                
+                // Cleanup
+                setTimeout(() => {
+                    if (link.parentNode) {
+                        document.body.removeChild(link);
+                    }
+                }, 100);
+                
+                this.showAppOpened();
+            }
+
+            showAppOpened() {
+                const statusEl = document.getElementById('status');
+                const countdownEl = document.getElementById('countdown');
+                
+                statusEl.className = 'status success';
+                statusEl.innerHTML = '✅ Đã gửi lệnh mở Telegram!<br><small>Nếu app không mở, hãy click nút "Mở Telegram" bên dưới</small>';
+                countdownEl.style.display = 'none';
+            }
+
+            showAppNotFound() {
+                const statusEl = document.getElementById('status');
+                const countdownEl = document.getElementById('countdown');
+                
+                statusEl.className = 'status error';
+                statusEl.innerHTML = '❌ Không thể mở app Telegram tự động<br><small>Vui lòng click nút "Mở Telegram" để thử lại</small>';
+                countdownEl.style.display = 'none';
             }
 
             isMobile() {
@@ -483,16 +519,37 @@
 
         // Khởi tạo khi DOM ready
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => new TelegramProxy());
+            document.addEventListener('DOMContentLoaded', () => {
+                window.telegramProxy = new TelegramProxy();
+            });
         } else {
-            new TelegramProxy();
+            window.telegramProxy = new TelegramProxy();
         }
 
         // Xử lý click events
         document.addEventListener('click', (e) => {
             if (e.target.id === 'openTelegram') {
                 e.preventDefault();
-                window.location.href = e.target.href;
+                
+                const telegramUrl = e.target.href;
+                
+                if (window.telegramProxy && window.telegramProxy.isMobile()) {
+                    // Mobile: replace thay vì href để không mở tab mới
+                    window.location.replace(telegramUrl);
+                } else {
+                    // Desktop: tạo link ẩn và click
+                    const link = document.createElement('a');
+                    link.href = telegramUrl;
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    // Cập nhật status
+                    const statusEl = document.getElementById('status');
+                    statusEl.className = 'status success';
+                    statusEl.innerHTML = '✅ Đã thử mở Telegram!<br><small>Kiểm tra xem app có mở không</small>';
+                }
             }
         });
     </script>
