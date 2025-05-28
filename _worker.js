@@ -5,7 +5,7 @@ export default {
 
     if (!path) {
       return Response.redirect(
-        "https://bibica.net/giai-quyet-telegram-bi-nha-mang-viet-nam-chan-bang-mtproto-proxy-proton-vpn",
+        "https://bibica.net/giai-quyet-telegram-bi-nha-mang-viet-nam-chan-bang-mtproto-socks5-proton-vpn/",
         301
       );
     }
