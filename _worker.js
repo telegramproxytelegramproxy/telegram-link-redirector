@@ -11,19 +11,18 @@ export default {
     }
 
     const cleaned = path.replace(/^@/, '');
-
     const tgUrl = cleaned.startsWith('+')
       ? `tg://join?invite=${cleaned.slice(1)}`
       : `tg://resolve?domain=${cleaned}`;
 
     return new Response(
-      `<!DOCTYPE html><meta http-equiv="refresh" content="0;url=${tgUrl}">`,
+      `<!DOCTYPE html>
+       <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate">
+       <meta http-equiv="refresh" content="0;url=${tgUrl}">`,
       {
         headers: {
           "content-type": "text/html",
-          "cache-control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
-          "pragma": "no-cache",
-          "expires": "0",
+          "cache-control": "no-store, max-age=0",
         },
       }
     );
