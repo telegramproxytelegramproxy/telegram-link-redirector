@@ -2,8 +2,7 @@ export default {
   async fetch(request) {
     const url = new URL(request.url);
     const path = url.pathname.slice(1); // Bỏ "/" ở đầu (ví dụ: "duck_group")
-    const userAgent = request.headers.get('User-Agent') || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(userAgent);
+    const params = url.searchParams.toString(); // Giữ lại tham số (nếu có)
 
     // 1. Xử lý truy cập trang chủ (không có path)
     if (!path) {
@@ -11,41 +10,35 @@ export default {
         <!DOCTYPE html>
         <html>
         <body>
-          <h1>Welcome to Telegram Gateway</h1>
-          <p>Try <a href="/duck_group">/duck_group</a> or <a href="/duck_bot?start=123">/duck_bot?start=123</a></p>
+          <h1>Telegram Deep Links</h1>
+          <p>Ví dụ: <a href="/duck_group">/duck_group</a> hoặc <a href="/duck_bot?start=123">/duck_bot?start=123</a></p>
         </body>
         </html>
       `, { headers: { 'Content-Type': 'text/html' } });
     }
 
-    // 2. Ưu tiên mở app Telegram nếu là mobile
-    if (isMobile) {
-      const tgUri = `tg://resolve?domain=${path}`;
-      return Response.redirect(tgUri, 302);
+    // 2. Xác định loại link và chuyển thành tg://
+    let tgUri;
+    if (path.startsWith('+') && /^\+[0-9]+$/.test(path)) {
+      // Link số điện thoại (ví dụ: /+84123456789)
+      tgUri = `tg://resolve?phone=${path.slice(1)}`;
+    } 
+    else if (path.startsWith('joinchat/') || path.startsWith('+')) {
+      // Private invite link (ví dụ: /joinchat/AbCdEf hoặc /+AbCdEf)
+      const inviteCode = path.replace('joinchat/', '');
+      tgUri = `tg://join?invite=${inviteCode}`;
+    }
+    else if (path.startsWith('c/')) {
+      // Group chat ID (ví dụ: /c/123456789/10)
+      const [_, chatId, postId] = path.split('/');
+      tgUri = `tg://privatepost?chat_id=${chatId}&post_id=${postId}`;
+    }
+    else {
+      // Mặc định: username, bot, channel (ví dụ: /duck_bot?start=123)
+      tgUri = `tg://resolve?domain=${path}${params ? '&' + params : ''}`;
     }
 
-    // 3. Proxy nội dung từ telegram.org cho desktop
-    const proxyUrl = `https://telegram.org/${path}${url.search}`;
-    try {
-      const response = await fetch(proxyUrl, {
-        headers: { 'Host': 'telegram.org' },
-        redirect: 'follow'
-      });
-
-      // Rewrite tất cả links để giữ nguyên domain t.bibica.net
-      if (response.headers.get('Content-Type')?.includes('text/html')) {
-        let html = await response.text();
-        html = html.replace(/(https?:\/\/)(telegram\.org|t\.me)/g, 'https://t.bibica.net');
-        return new Response(html, { 
-          headers: { 'Content-Type': 'text/html' } 
-        });
-      }
-      return response;
-    } catch (error) {
-      return new Response(`Proxy failed. <a href="tg://resolve?domain=${path}">Open in Telegram App</a>`, {
-        status: 502,
-        headers: { 'Content-Type': 'text/html' }
-      });
-    }
+    // 3. Chuyển hướng thẳng đến app Telegram
+    return Response.redirect(tgUri, 302);
   }
 };
