@@ -1,8 +1,8 @@
 export default {
   async fetch(request) {
     const url = new URL(request.url);
-    const path = url.pathname.slice(1);
-
+    const path = url.pathname.slice(1).replace(/\/$/, '');
+    // Redirect nếu path rỗng (hoặc chỉ có "/")
     if (!path) {
       return Response.redirect(
         "https://bibica.net/giai-quyet-telegram-bi-nha-mang-viet-nam-chan-bang-mtproto-socks5-proton-vpn/",
