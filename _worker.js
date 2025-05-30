@@ -1,57 +1,57 @@
 export default {
   async fetch(request) {
     const url = new URL(request.url);
-    
-    // Xử lý chuyển hướng trang chủ
+    const HOMEPAGE = 'https://bibica.net/giai-quyet-telegram-bi-nha-mang-viet-nam-chan-bang-mtproto-socks5-proton-vpn/';
+
+    // Xử lý trang chủ
     if (url.hostname === 't.bibica.net' && (url.pathname === '/' || url.pathname === '')) {
-      return Response.redirect(
-        'https://bibica.net/giai-quyet-telegram-bi-nha-mang-viet-nam-chan-bang-mtproto-socks5-proton-vpn/',
-        301
-      );
+      return Response.redirect(HOMEPAGE, 301);
     }
 
-    const targetDomain = url.hostname === 't.bibica.net' ? 't.me' : 'telegram.org';
-    let targetPath = url.pathname;
+    // Tự động chuẩn hóa URL đầu vào
+    let path = url.pathname;
+    let search = url.search;
 
-    // Xử lý bỏ @ trong username
-    if (url.hostname === 't.bibica.net' && targetPath.startsWith('/@')) {
-      targetPath = targetPath.replace(/^\/@/, '/');
+    // Xử lý các trường hợp đặc biệt
+    if (path.startsWith('/joinchat/')) {
+      path = `/+${path.split('/')[2]}`;
+    } else if (path === '/join' && url.searchParams.has('invite')) {
+      path = `/+${url.searchParams.get('invite')}`;
+      search = '';
+    } else if (path.startsWith('/@')) {
+      path = path.replace('/@', '/');
+    } else if (path.match(/^\/[a-z]{2}\//)) {
+      // Xử lý link ngôn ngữ (/en/...)
+      path = path.substring(3);
     }
 
-    const targetUrl = `https://${targetDomain}${targetPath}${url.search}`;
+    const targetUrl = `https://t.me${path}${search}`;
 
-    // Gửi request và kiểm tra response
+    // Kiểm tra response
     const response = await fetch(targetUrl, {
       headers: {
-        'Host': targetDomain,
+        'Host': 't.me',
         'User-Agent': 'Mozilla/5.0'
       },
       redirect: 'follow'
     });
 
-    // Phát hiện link không tồn tại (trả về trang chủ Telegram)
-    if (response.url.endsWith('t.me/') || response.url.endsWith('telegram.org/')) {
-      return Response.redirect(
-        'https://bibica.net/giai-quyet-telegram-bi-nha-mang-viet-nam-chan-bang-mtproto-socks5-proton-vpn/',
-        302
-      );
+    // Phát hiện link không tồn tại
+    if (response.url.endsWith('t.me/') || response.status === 404) {
+      return Response.redirect(HOMEPAGE, 302);
     }
 
     // Xử lý nội dung HTML
     if (response.headers.get('content-type')?.includes('text/html')) {
       let html = await response.text();
       
-      // Thay thế các link Telegram
+      // Tự động thay thế mọi link Telegram
       html = html.replace(
-        /(https?:)?\/\/(t\.me)\/@?([a-zA-Z0-9_\-]+)/g, 
-        'https://t.bibica.net/$3'
-      );
-      html = html.replace(
-        /(https?:)?\/\/(telegram\.org)(\/[a-zA-Z0-9_\-?=&@#\.\/]+)/g, 
+        /(https?:)?\/\/(t\.me|telegram\.org)(\/[a-zA-Z0-9_\-+?=&@#\.\/]*)/g, 
         'https://t.bibica.net$3'
       );
       html = html.replace(
-        /tg:\/\/([a-zA-Z0-9_\-?=&@#]+)/g, 
+        /tg:\/\/([a-zA-Z0-9_\-+?=&@#]+)/g, 
         'https://t.bibica.net/$1'
       );
 
