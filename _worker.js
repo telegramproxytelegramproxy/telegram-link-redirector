@@ -1,72 +1,42 @@
 export default {
   async fetch(request) {
     const url = new URL(request.url);
-    const HOMEPAGE = 'https://bibica.net/giai-quyet-telegram-bi-nha-mang-viet-nam-chan-bang-mtproto-socks5-proton-vpn/';
-
-    // Xử lý trang chủ
-    if (url.hostname === 't.bibica.net' && (url.pathname === '/' || url.pathname === '')) {
-      return Response.redirect(HOMEPAGE, 301);
+    
+    // Xử lý các deep link đặc biệt (dl?tme=...)
+    if (url.pathname === '/dl' && url.searchParams.has('tme')) {
+      return Response.redirect(`tg://t.me?tme=${url.searchParams.get('tme')}`, 302);
     }
 
-    // Tự động chuẩn hóa URL
-    let path = url.pathname;
-    let query = url.search;
+    // Xử lý các link thông thường
+    const path = url.pathname.startsWith('/@') 
+      ? url.pathname.replace('/@', '/') 
+      : url.pathname;
 
-    // Xử lý các trường hợp đặc biệt
-    if (path === '/resolve' && url.searchParams.has('domain')) {
-      // Chuyển /resolve?domain=xxx thành /xxx
-      path = `/${url.searchParams.get('domain')}`;
-      query = '';
-    } else if (path.startsWith('/joinchat/')) {
-      path = `/+${path.split('/')[2]}`;
-    } else if (path === '/join' && url.searchParams.has('invite')) {
-      path = `/+${url.searchParams.get('invite')}`;
-      query = '';
-    } else if (path.startsWith('/@')) {
-      path = path.replace('/@', '/');
+    const targetUrl = `https://t.me${path}${url.search}`;
+    
+    try {
+      const response = await fetch(targetUrl, {
+        headers: { 'Host': 't.me' },
+        redirect: 'manual' // Không tự động redirect
+      });
+
+      // Nếu là redirect (302) -> chuyển thẳng sang app
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        const location = response.headers.get('location');
+        if (location?.includes('t.me')) {
+          return Response.redirect(location.replace('https://t.me', 'tg://t.me'), 302);
+        }
+      }
+
+      // Nếu nội dung HTML -> chuyển sang app
+      if (response.headers.get('content-type')?.includes('text/html')) {
+        return Response.redirect(`tg://t.me${path}${url.search}`, 302);
+      }
+
+      return response;
+    } catch {
+      // Mặc định mở app khi có lỗi
+      return Response.redirect(`tg://t.me${path}${url.search}`, 302);
     }
-
-    const targetUrl = `https://t.me${path}${query}`;
-
-    // Kiểm tra response
-    const response = await fetch(targetUrl, {
-      headers: {
-        'Host': 't.me',
-        'User-Agent': 'Mozilla/5.0'
-      },
-      redirect: 'follow'
-    });
-
-    // Phát hiện link không tồn tại
-    if (response.url.endsWith('t.me/') || response.status === 404) {
-      return Response.redirect(HOMEPAGE, 302);
-    }
-
-    // Xử lý nội dung HTML
-    if (response.headers.get('content-type')?.includes('text/html')) {
-      let html = await response.text();
-      
-      // Thay thế mọi link Telegram
-      html = html.replace(
-        /(https?:)?\/\/(t\.me|telegram\.org)(\/[a-zA-Z0-9_\-+?=&@#\.\/]*)/g, 
-        'https://t.bibica.net$3'
-      );
-      html = html.replace(
-        /tg:\/\/(resolve|socks|proxy|join|addstickers)\?([a-zA-Z0-9_\-+?=&@#]+)/g, 
-        'https://t.bibica.net/$1?$2'
-      );
-
-      // Sửa CSP header
-      const modifiedResponse = new Response(html, response);
-      const csp = modifiedResponse.headers.get('content-security-policy') || '';
-      modifiedResponse.headers.set(
-        'content-security-policy', 
-        csp.replace(/(t\.me|telegram\.org)/g, 't.bibica.net')
-      );
-      
-      return modifiedResponse;
-    }
-
-    return response;
   }
 };
