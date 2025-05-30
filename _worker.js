@@ -2,12 +2,19 @@ export default {
   async fetch(request) {
     const url = new URL(request.url);
     const targetDomain = url.hostname === 't.bibica.net' ? 't.me' : 'telegram.org';
-    const targetUrl = `https://${targetDomain}${url.pathname}${url.search}`;
+    let targetPath = url.pathname;
+
+    // Xử lý bỏ @ nếu có trong URL (ví dụ: /@username → /username)
+    if (url.hostname === 't.bibica.net' && targetPath.startsWith('/@')) {
+      targetPath = targetPath.replace(/^\/@/, '/'); // Bỏ ký tự @
+    }
+
+    const targetUrl = `https://${targetDomain}${targetPath}${url.search}`;
 
     // Clone headers và chỉnh sửa
     const headers = new Headers(request.headers);
     headers.set('Host', targetDomain);
-    headers.delete('Referer'); // Tránh bị Telegram chặn
+    headers.delete('Referer');
 
     const response = await fetch(targetUrl, {
       headers: headers,
@@ -18,11 +25,19 @@ export default {
     if (response.headers.get('content-type')?.includes('text/html')) {
       let html = await response.text();
       
-      // Thay thế t.me/... và telegram.org/... thành t.bibica.net/...
+      // Thay thế t.me/@username → t.bibica.net/username (bỏ @)
+      html = html.replace(
+        /(https?:)?\/\/(t\.me)\/@([a-zA-Z0-9_\-]+)/g, 
+        'https://t.bibica.net/$3'
+      );
+      
+      // Thay thế các link Telegram khác (không có @)
       html = html.replace(
         /(https?:)?\/\/(t\.me|telegram\.org)(\/[a-zA-Z0-9_\-?=&@#\.\/]+)/g, 
         'https://t.bibica.net$3'
       );
+      
+      // Thay thế tg:// thành https://t.bibica.net/
       html = html.replace(
         /tg:\/\/([a-zA-Z0-9_\-?=&@#]+)/g, 
         'https://t.bibica.net/$1'
