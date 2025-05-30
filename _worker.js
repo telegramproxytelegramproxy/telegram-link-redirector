@@ -18,7 +18,6 @@ export default {
       const proxyParam = url.searchParams.get('server') || url.searchParams.get('host');
       
       if (proxyParam) {
-        // Kiểm tra định dạng IP:PORT
         const proxyRegex = /^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?):([1-9][0-9]{0,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$/;
         
         if (!proxyRegex.test(proxyParam)) {
@@ -44,22 +43,44 @@ export default {
       path = path.replace('/@', '/');
     }
 
+    // 5. Kiểm tra username Telegram hợp lệ
+    const usernamePattern = /^\/([a-zA-Z0-9_]{5,32})(\/.*)?$/;
+    const invitePattern = /^\/(\+|joinchat\/)([a-zA-Z0-9_-]{10,32})$/;
+    const botPattern = /^\/(bot\d+[a-zA-Z0-9_]*)(\/.*)?$/;
+
+    // Lấy phần username chính (loại bỏ query và các phần phụ)
+    const mainPath = path.split('/')[1] || '';
+    
+    if (mainPath && 
+        !usernamePattern.test(path) && 
+        !invitePattern.test(path) && 
+        !botPattern.test(path) &&
+        !path.startsWith('/c/') && 
+        !path.startsWith('/s/') &&
+        !path.startsWith('/share/') &&
+        !path.startsWith('/addstickers/') &&
+        !path.startsWith('/addtheme/') &&
+        !path.match(/^\/[a-z]{2}\//) && // Ngôn ngữ (ví dụ /en/)
+        !path.match(/\.(html|php|js|css|jpg|png|gif|txt)$/i)) { // Các file tĩnh
+      return Response.redirect(HOMEPAGE, 302);
+    }
+
     const targetUrl = `https://t.me${path}${query}`;
 
-    // 5. Kiểm tra response
+    // 6. Kiểm tra response
     try {
       const response = await fetch(targetUrl, {
         headers: { 'Host': 't.me' },
         redirect: 'follow',
-        timeout: 3000 // Timeout sau 3s
+        timeout: 3000
       });
 
-      // Phát hiện link không tồn tại
+      // Phát hiện link không tồn tại hoặc chuyển hướng về trang chủ Telegram
       if (response.url.endsWith('t.me/') || response.status === 404) {
         return Response.redirect(HOMEPAGE, 302);
       }
 
-      // 6. Xử lý nội dung HTML
+      // 7. Xử lý nội dung HTML
       if (response.headers.get('content-type')?.includes('text/html')) {
         let html = await response.text();
         
