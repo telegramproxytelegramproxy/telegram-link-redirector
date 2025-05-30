@@ -13,7 +13,21 @@ export default {
       return Response.redirect(HOMEPAGE, 302);
     }
 
-    // 3. Tự động chuẩn hóa URL
+    // 3. Kiểm tra và chặn các link proxy/socks không hợp lệ
+    if (url.pathname.startsWith('/socks') || url.pathname.startsWith('/proxy')) {
+      const proxyParam = url.searchParams.get('server') || url.searchParams.get('host');
+      
+      if (proxyParam) {
+        // Kiểm tra định dạng IP:PORT
+        const proxyRegex = /^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?):([1-9][0-9]{0,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$/;
+        
+        if (!proxyRegex.test(proxyParam)) {
+          return Response.redirect(HOMEPAGE, 302);
+        }
+      }
+    }
+
+    // 4. Tự động chuẩn hóa URL
     let path = url.pathname;
     let query = url.search;
 
@@ -32,7 +46,7 @@ export default {
 
     const targetUrl = `https://t.me${path}${query}`;
 
-    // 4. Kiểm tra response
+    // 5. Kiểm tra response
     try {
       const response = await fetch(targetUrl, {
         headers: { 'Host': 't.me' },
@@ -45,7 +59,7 @@ export default {
         return Response.redirect(HOMEPAGE, 302);
       }
 
-      // 5. Xử lý nội dung HTML
+      // 6. Xử lý nội dung HTML
       if (response.headers.get('content-type')?.includes('text/html')) {
         let html = await response.text();
         
