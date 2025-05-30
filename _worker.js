@@ -5,7 +5,7 @@ export default {
     const TELEGRAM_DOMAIN = 't.me';
     const TELEGRAM_CDN_DOMAINS = [
       'cdn1.cdn-telegram.org',
-      'cdn2.cdn-telegram.org', 
+      'cdn2.cdn-telegram.org',
       'cdn3.cdn-telegram.org',
       'cdn4.cdn-telegram.org',
       'cdn5.cdn-telegram.org'
@@ -28,7 +28,12 @@ export default {
       });
     }
 
-    // 3. Proxy request đến Telegram
+    // 3. Cho phép truy cập trực tiếp vào các resource data URI
+    if (url.pathname.startsWith('/data:')) {
+      return new Response(null, { status: 404 });
+    }
+
+    // 4. Proxy request đến Telegram
     const targetUrl = `https://${TELEGRAM_DOMAIN}${url.pathname}${url.search}`;
 
     try {
@@ -38,7 +43,7 @@ export default {
         timeout: 5000
       });
 
-      // 4. Xử lý chuyển hướng
+      // 5. Xử lý chuyển hướng
       if ([301, 302, 303, 307, 308].includes(response.status)) {
         const location = response.headers.get('location');
         if (location) {
@@ -54,25 +59,29 @@ export default {
         }
       }
 
-      // 5. Kiểm tra trang chủ Telegram
+      // 6. Kiểm tra trang chủ Telegram
       const finalUrl = new URL(response.url);
       if (finalUrl.hostname === TELEGRAM_DOMAIN && 
           (finalUrl.pathname === '/' || finalUrl.pathname === '')) {
         return Response.redirect(HOMEPAGE, 302);
       }
 
-      // 6. Xử lý nội dung HTML
+      // 7. Xử lý nội dung HTML
       if (response.headers.get('content-type')?.includes('text/html')) {
         let html = await response.text();
         
-        // Thay thế link Telegram nhưng giữ nguyên link CDN
+        // Thay thế link Telegram nhưng giữ nguyên data URI và link CDN
         html = html.replace(
           /(https?:)?\/\/(t\.me|telegram\.org)(\/[^\s"'<>]*)/g, 
           'https://t.bibica.net$3'
         );
         
         const modifiedResponse = new Response(html, response);
-        modifiedResponse.headers.set('content-security-policy', "default-src 'self' https://t.bibica.net https://t.me *.cdn-telegram.org");
+        modifiedResponse.headers.set('content-security-policy', 
+          "default-src 'self' https://t.bibica.net https://t.me *.cdn-telegram.org data:; " +
+          "img-src 'self' https://t.bibica.net https://t.me *.cdn-telegram.org data:; " +
+          "media-src 'self' https://t.bibica.net https://t.me *.cdn-telegram.org data:"
+        );
         return modifiedResponse;
       }
 
