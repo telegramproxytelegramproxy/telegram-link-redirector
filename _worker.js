@@ -1,12 +1,21 @@
 export default {
   async fetch(request) {
     const url = new URL(request.url);
+    
+    // Xử lý chuyển hướng trang chủ (cả t.bibica.net và t.bibica.net/)
+    if (url.hostname === 't.bibica.net' && (url.pathname === '/' || url.pathname === '')) {
+      return Response.redirect(
+        'https://bibica.net/giai-quyet-telegram-bi-nha-mang-viet-nam-chan-bang-mtproto-socks5-proton-vpn/',
+        301 // Redirect vĩnh viễn
+      );
+    }
+
     const targetDomain = url.hostname === 't.bibica.net' ? 't.me' : 'telegram.org';
     let targetPath = url.pathname;
 
     // Xử lý bỏ @ nếu có trong URL (ví dụ: /@username → /username)
     if (url.hostname === 't.bibica.net' && targetPath.startsWith('/@')) {
-      targetPath = targetPath.replace(/^\/@/, '/'); // Bỏ ký tự @
+      targetPath = targetPath.replace(/^\/@/, '/');
     }
 
     const targetUrl = `https://${targetDomain}${targetPath}${url.search}`;
