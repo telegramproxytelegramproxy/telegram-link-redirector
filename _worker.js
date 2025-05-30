@@ -3,35 +3,58 @@ export default {
     const url = new URL(request.url);
     const HOMEPAGE = 'https://bibica.net/giai-quyet-telegram-bi-nha-mang-viet-nam-chan-bang-mtproto-socks5-proton-vpn/';
     const TELEGRAM_DOMAIN = 't.me';
+    const TELEGRAM_CDN_DOMAINS = [
+      'cdn1.cdn-telegram.org',
+      'cdn2.cdn-telegram.org', 
+      'cdn3.cdn-telegram.org',
+      'cdn4.cdn-telegram.org',
+      'cdn5.cdn-telegram.org'
+    ];
 
-    // 1. Xử lý yêu cầu đến trang chủ
+    // 1. Xử lý trang chủ
     if (url.hostname === 't.bibica.net' && (url.pathname === '/' || url.pathname === '')) {
       return Response.redirect(HOMEPAGE, 301);
     }
 
-    // 2. Proxy tất cả các request đến Telegram
+    // 2. Xử lý các request đến CDN Telegram
+    if (TELEGRAM_CDN_DOMAINS.includes(url.hostname)) {
+      const cdnUrl = `https://${url.hostname}${url.pathname}`;
+      return fetch(cdnUrl, {
+        headers: {
+          'Referer': 'https://t.me/',
+          'Origin': 'https://t.me'
+        },
+        redirect: 'follow'
+      });
+    }
+
+    // 3. Proxy request đến Telegram
     const targetUrl = `https://${TELEGRAM_DOMAIN}${url.pathname}${url.search}`;
 
     try {
-      // 3. Gửi request đến Telegram với timeout
       const response = await fetch(targetUrl, {
         headers: { 'Host': TELEGRAM_DOMAIN },
-        redirect: 'manual', // Xử lý chuyển hướng thủ công
+        redirect: 'manual',
         timeout: 5000
       });
 
-      // 4. Phát hiện và xử lý chuyển hướng
+      // 4. Xử lý chuyển hướng
       if ([301, 302, 303, 307, 308].includes(response.status)) {
         const location = response.headers.get('location');
-        if (location && location.includes(TELEGRAM_DOMAIN)) {
-          // Chặn chuyển hướng về Telegram
-          return Response.redirect(HOMEPAGE, 302);
+        if (location) {
+          // Cho phép chuyển hướng đến CDN Telegram
+          if (TELEGRAM_CDN_DOMAINS.some(domain => location.includes(domain))) {
+            return Response.redirect(location, response.status);
+          }
+          // Chặn chuyển hướng về trang chủ Telegram
+          if (location.includes(TELEGRAM_DOMAIN)) {
+            return Response.redirect(HOMEPAGE, 302);
+          }
+          return Response.redirect(location, response.status);
         }
-        // Cho phép chuyển hướng khác
-        return Response.redirect(location, response.status);
       }
 
-      // 5. Kiểm tra nếu nội dung là trang chủ Telegram
+      // 5. Kiểm tra trang chủ Telegram
       const finalUrl = new URL(response.url);
       if (finalUrl.hostname === TELEGRAM_DOMAIN && 
           (finalUrl.pathname === '/' || finalUrl.pathname === '')) {
@@ -42,22 +65,19 @@ export default {
       if (response.headers.get('content-type')?.includes('text/html')) {
         let html = await response.text();
         
-        // Thay thế tất cả link Telegram thành link của bạn
+        // Thay thế link Telegram nhưng giữ nguyên link CDN
         html = html.replace(
-          new RegExp(`(https?:)?//(${TELEGRAM_DOMAIN}|telegram\\.org)(/[^\\s"'<>]*)`, 'g'),
+          /(https?:)?\/\/(t\.me|telegram\.org)(\/[^\s"'<>]*)/g, 
           'https://t.bibica.net$3'
         );
         
-        // Sửa CSP header để cho phép thay thế nội dung
         const modifiedResponse = new Response(html, response);
-        modifiedResponse.headers.set('content-security-policy', "default-src 'self' https://t.bibica.net https://t.me");
+        modifiedResponse.headers.set('content-security-policy', "default-src 'self' https://t.bibica.net https://t.me *.cdn-telegram.org");
         return modifiedResponse;
       }
 
-      // 7. Trả về response nguyên bản cho các loại nội dung khác
       return response;
     } catch (error) {
-      // Xử lý lỗi timeout hoặc lỗi mạng
       return Response.redirect(HOMEPAGE, 302);
     }
   }
