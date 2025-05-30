@@ -4,41 +4,43 @@ export default {
     const domain = url.hostname === 't.bibica.net' ? 't.me' : 'telegram.org';
     const targetUrl = `https://${domain}${url.pathname}${url.search}`;
 
+    // Clone headers và chỉnh sửa
     const headers = new Headers(request.headers);
     headers.set('Host', domain);
-    headers.delete('Referer'); // Telegram thường chặn Referer
+    headers.delete('Referer'); // Telegram không thích Referer
 
+    // Gửi request đến Telegram server
     const response = await fetch(targetUrl, {
       headers: headers,
-      redirect: 'follow',
-      cf: { cacheEverything: false } // Tắt cache để tránh lỗi động
+      redirect: 'follow'
     });
 
+    // Nếu là HTML, thay thế các link Telegram
     if (response.headers.get('content-type')?.includes('text/html')) {
       let html = await response.text();
       
-      // Chỉ thay thế các link Telegram (t.me/... hoặc tg://...)
+      // Thay thế tất cả t.me/... và tg://... thành t.bibica.net/...
       html = html.replace(
-        /(https?:)?\/\/(t\.me)(\/[a-zA-Z0-9_\-?=&]+)?/g, 
+        /(https?:)?\/\/(t\.me)(\/[a-zA-Z0-9_\-?=&@#]+)?/g, 
         'https://t.bibica.net$3'
       );
       html = html.replace(
-        /tg:\/\/([a-zA-Z0-9_\-?=&]+)/g, 
+        /tg:\/\/([a-zA-Z0-9_\-?=&@#]+)/g, 
         'https://t.bibica.net/$1'
       );
 
+      // Sửa CSP để không chặn tài nguyên
       const modifiedResponse = new Response(html, response);
-      
-      // Sửa CSP để tránh bị chặn
       const csp = modifiedResponse.headers.get('content-security-policy') || '';
       modifiedResponse.headers.set(
         'content-security-policy', 
-        csp.replace(/t\.me|telegram\.org/g, 't.bibica.net')
+        csp.replace(/(t\.me|telegram\.org)/g, 't.bibica.net')
       );
       
       return modifiedResponse;
     }
     
+    // Nếu không phải HTML (JS/CSS/img/font/API...), trả về nguyên gốc
     return response;
   }
 };
