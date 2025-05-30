@@ -8,24 +8,25 @@ export default {
       return Response.redirect(HOMEPAGE, 301);
     }
 
-    // Tự động chuẩn hóa URL đầu vào
+    // Tự động chuẩn hóa URL
     let path = url.pathname;
-    let search = url.search;
+    let query = url.search;
 
     // Xử lý các trường hợp đặc biệt
-    if (path.startsWith('/joinchat/')) {
+    if (path === '/resolve' && url.searchParams.has('domain')) {
+      // Chuyển /resolve?domain=xxx thành /xxx
+      path = `/${url.searchParams.get('domain')}`;
+      query = '';
+    } else if (path.startsWith('/joinchat/')) {
       path = `/+${path.split('/')[2]}`;
     } else if (path === '/join' && url.searchParams.has('invite')) {
       path = `/+${url.searchParams.get('invite')}`;
-      search = '';
+      query = '';
     } else if (path.startsWith('/@')) {
       path = path.replace('/@', '/');
-    } else if (path.match(/^\/[a-z]{2}\//)) {
-      // Xử lý link ngôn ngữ (/en/...)
-      path = path.substring(3);
     }
 
-    const targetUrl = `https://t.me${path}${search}`;
+    const targetUrl = `https://t.me${path}${query}`;
 
     // Kiểm tra response
     const response = await fetch(targetUrl, {
@@ -45,14 +46,14 @@ export default {
     if (response.headers.get('content-type')?.includes('text/html')) {
       let html = await response.text();
       
-      // Tự động thay thế mọi link Telegram
+      // Thay thế mọi link Telegram
       html = html.replace(
         /(https?:)?\/\/(t\.me|telegram\.org)(\/[a-zA-Z0-9_\-+?=&@#\.\/]*)/g, 
         'https://t.bibica.net$3'
       );
       html = html.replace(
-        /tg:\/\/([a-zA-Z0-9_\-+?=&@#]+)/g, 
-        'https://t.bibica.net/$1'
+        /tg:\/\/(resolve|socks|proxy|join|addstickers)\?([a-zA-Z0-9_\-+?=&@#]+)/g, 
+        'https://t.bibica.net/$1?$2'
       );
 
       // Sửa CSP header
