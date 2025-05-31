@@ -1,67 +1,45 @@
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request) {
     const url = new URL(request.url);
     const HOMEPAGE = 'https://bibica.net/giai-quyet-telegram-bi-nha-mang-viet-nam-chan-bang-mtproto-socks5-proton-vpn/';
     const TELEGRAM_HOMEPAGE = 'https://t.me/';
-    const CACHE_TTL = 86400; // Cache trong 24 giờ
 
-    // 1. Xử lý yêu cầu đến trang chủ (không cache)
+    // 1. Xử lý yêu cầu đến trang chủ của chúng ta
     if (url.hostname === 't.bibica.net' && (url.pathname === '/' || url.pathname === '')) {
       return Response.redirect(HOMEPAGE, 301);
     }
 
-    // 2. Tạo cache key
-    const cacheKey = new Request(url.toString(), {
-      headers: { 
-        'Host': 't.me',
-        'Accept': request.headers.get('Accept') || 'text/html'
-      },
-      redirect: 'manual'
-    });
-
-    // 3. Kiểm tra cache trước
-    const cache = caches.default;
-    let response = await cache.match(cacheKey);
-    
-    if (response) {
-      console.log('Cache HIT for:', url.pathname);
-      return response;
-    }
-
-    console.log('Cache MISS for:', url.pathname);
+    // 2. Tạo URL đích trên Telegram
+    const targetUrl = `https://t.me${url.pathname}${url.search}`;
 
     try {
-      // 4. Không có cache -> gửi request đến Telegram
-      const targetUrl = `https://t.me${url.pathname}${url.search}`;
-      response = await fetch(targetUrl, {
+      // 3. Gửi request đến Telegram
+      const response = await fetch(targetUrl, {
         headers: { 'Host': 't.me' },
-        redirect: 'manual',
-        cf: {
-          cacheEverything: true,
-          cacheTtl: CACHE_TTL
-        }
+        redirect: 'manual', // Tự xử lý chuyển hướng
       });
 
-      // 5. Xử lý các response chuyển hướng (3xx)
+      // 4. Xử lý các response chuyển hướng (3xx)
       if ([301, 302, 303, 307, 308].includes(response.status)) {
         const location = response.headers.get('location');
         
+        // Nếu chuyển hướng về trang chủ Telegram thì chặn
         if (location && (location === TELEGRAM_HOMEPAGE || location === 'https://t.me')) {
           return Response.redirect(HOMEPAGE, 302);
         }
         
+        // Cho phép tất cả các chuyển hướng khác
         if (location) {
           return Response.redirect(location, response.status);
         }
       }
 
-      // 6. Kiểm tra nếu nội dung là trang chủ Telegram
+      // 5. Kiểm tra nếu nội dung là trang chủ Telegram
       if (response.url === TELEGRAM_HOMEPAGE && response.status === 200) {
         return Response.redirect(HOMEPAGE, 302);
       }
 
-      // 7. Xử lý nội dung HTML (thay thẻ link)
-      let finalResponse;
+      // 6. Xử lý nội dung HTML (thay thẻ link)
       if (response.headers.get('content-type')?.includes('text/html')) {
         let html = await response.text();
         
@@ -70,22 +48,16 @@ export default {
           'https://t.bibica.net$3'
         );
         
-        finalResponse = new Response(html, response);
-        finalResponse.headers.delete('content-security-policy');
-      } else {
-        finalResponse = new Response(response.body, response);
+        const modifiedResponse = new Response(html, response);
+        modifiedResponse.headers.delete('content-security-policy');
+        return modifiedResponse;
       }
 
-      // 8. Thiết lập cache và lưu response
-      finalResponse.headers.set('Cache-Control', `public, max-age=${CACHE_TTL}`);
-      finalResponse.headers.delete('set-cookie'); // Loại bỏ cookie để cache được
-      
-      ctx.waitUntil(cache.put(cacheKey, finalResponse.clone()));
-
-      return finalResponse;
+      // 7. Trả về response nguyên bản cho mọi trường hợp khác
+      return response;
 
     } catch (error) {
-      console.error('Error:', error);
+      // Xử lý lỗi timeout hoặc lỗi mạng
       return Response.redirect(HOMEPAGE, 302);
     }
   }
