@@ -17,7 +17,6 @@ export default {
       const response = await fetch(targetUrl, {
         headers: { 'Host': 't.me' },
         redirect: 'manual', // Tự xử lý chuyển hướng
-        timeout: 5000
       });
 
       // 4. Xử lý các response chuyển hướng (3xx)
